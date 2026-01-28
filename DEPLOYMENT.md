@@ -35,9 +35,9 @@ sudo apt-get install -y python3-pip tesseract-ocr tesseract-ocr-tam poppler-util
 ## 2. Application Installation
 
 1.  **Clone the Repository:**
-    Copy the project files to the server (e.g., `/opt/phantom-doc-tools` or `C:\phantom-doc-tools`).
+    Copy the project files to the server
 
-2.  **Install Python Libraries:**
+3.  **Install Python Libraries:**
     Open a terminal in the project folder and run:
     ```bash
     pip install -r requirements.txt
