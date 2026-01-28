@@ -61,8 +61,59 @@ if TESSERACT_CMD:
             os.environ["TESSDATA_PREFIX"] = local_tessdata
 
 # ==============================================================================
+# Sidebar - Advanced Settings
+# ==============================================================================
+with st.sidebar:
+    st.markdown("### ⚙️ Advanced Settings")
+    st.markdown("Adjust these settings if you are facing accuracy issues.")
+    
+    # DPI Slider
+    pdf_dpi = st.slider(
+        "PDF Conversion Quality (DPI)",
+        min_value=72,
+        max_value=600,
+        value=300,
+        step=50,
+        help="Higher DPI improves accuracy but takes longer. Default is 300."
+    )
+    
+    # Image Upscale
+    img_upscale_factor = st.slider(
+        "Image Upscaling Factor",
+        min_value=1.0,
+        max_value=3.0,
+        value=2.0,
+        step=0.5,
+        help="Upscales uploaded images to improve OCR for small text. Default is 2.0x."
+    )
+    
+    st.markdown("---")
+    st.markdown("### 🛠️ Corrections")
+    enable_corrections = st.checkbox("Enable Auto-Corrections", value=True, help="Automatically fix common Tamil OCR errors (e.g., இரசு -> அரசு).")
+
+
+# ==============================================================================
 # Assets & Helpers
 # ==============================================================================
+
+def correct_tamil_errors(text):
+    """
+    Fixes common Tamil OCR errors.
+    """
+    if not text:
+        return text
+        
+    # Common replacements (Context-aware if possible, but simple string replace for now)
+    corrections = {
+        "இரசு": "அரசு",
+        "இராஜ": "ராஜ",
+        # Add more common misreadings here
+    }
+    
+    for wrong, right in corrections.items():
+        text = text.replace(wrong, right)
+        
+    return text
 
 def get_base64_of_bin_file(bin_file):
     with open(bin_file, 'rb') as f:
@@ -281,10 +332,17 @@ st.markdown(f"""
 # Logic Functions
 # ==============================================================================
 
-def preprocess_image(pil_image):
+def preprocess_image(pil_image, upscale_factor=1.0):
     open_cv_image = np.array(pil_image) 
     if len(open_cv_image.shape) == 3:
         open_cv_image = open_cv_image[:, :, ::-1].copy()
+
+    # Upscale if requested (for better OCR on small text)
+    if upscale_factor > 1.0:
+        height, width = open_cv_image.shape[:2]
+        new_width = int(width * upscale_factor)
+        new_height = int(height * upscale_factor)
+        open_cv_image = cv2.resize(open_cv_image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
 
     gray = cv2.cvtColor(open_cv_image, cv2.COLOR_BGR2GRAY)
     _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
@@ -333,6 +391,10 @@ def hocr_to_docx(hocr_content, doc, page_num):
         if not full_text:
             continue
             
+        # Auto-Correction
+        if enable_corrections:
+            full_text = correct_tamil_errors(full_text)
+
         docx_p = doc.add_paragraph()
         docx_p.paragraph_format.space_after = Pt(0) # Minimal spacing between lines to mimic PDF tight layout if needed, or Pt(6) for readabilty. 
         # For scripts, usually single spacing within blocks, double between blocks. 
@@ -458,8 +520,8 @@ with tab1:
                 status_text.markdown("<p style='color: #34d399;'>Initializing...</p>", unsafe_allow_html=True)
                 
                 file_bytes = uploaded_pdf.read()
-                # Use high DPI (300) to drastically improve OCR accuracy (fixes "2% error")
-                images = convert_from_bytes(file_bytes, poppler_path=POPPLER_PATH, dpi=300)
+                # Use DPI from sidebar
+                images = convert_from_bytes(file_bytes, poppler_path=POPPLER_PATH, dpi=pdf_dpi)
                 
                 doc = Document()
                 total_pages = len(images)
@@ -468,7 +530,8 @@ with tab1:
                     progress_bar.progress(int((i / total_pages) * 100))
                     status_text.markdown(f"<p style='color: #34d399;'>Processing Page {i+1} of {total_pages}...</p>", unsafe_allow_html=True)
                     
-                    processed_img = preprocess_image(image)
+                    # Preprocess (upscale factor usually 1.0 for high DPI PDF renders, but we can pass 1.0)
+                    processed_img = preprocess_image(image, upscale_factor=1.0)
                     
                     try:
                         hocr = pytesseract.image_to_pdf_or_hocr(
@@ -520,7 +583,8 @@ with tab2:
                 status_text.markdown("<p style='color: #34d399;'>Processing Image...</p>", unsafe_allow_html=True)
                 
                 image = Image.open(uploaded_img)
-                processed_img = preprocess_image(image)
+                # Use upscale factor from sidebar
+                processed_img = preprocess_image(image, upscale_factor=img_upscale_factor)
                 
                 doc = Document()
                 
