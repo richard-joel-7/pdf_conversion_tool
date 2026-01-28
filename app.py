@@ -147,7 +147,35 @@ st.markdown(f"""
         font-family: 'Outfit', sans-serif;
     }}
     
-    header, footer, #MainMenu {{visibility: hidden;}}
+    /* Header & Sidebar Visibility Fixes */
+    header, [data-testid="stHeader"] {{
+        background-color: transparent !important;
+        visibility: visible !important;
+    }}
+    
+    /* Hide the decoration bar at top if desired, but keep toggle visible */
+    header > div:first-child {{
+        background: transparent !important;
+    }}
+
+    /* Ensure Sidebar Toggle is Visible & Green */
+    [data-testid="stSidebarCollapsedControl"] {{
+        display: block !important;
+        color: #2F8D4D !important;
+        background-color: rgba(255, 255, 255, 0.05);
+        border-radius: 5px;
+        padding: 2px;
+    }}
+    
+    /* Sidebar Styling */
+    section[data-testid="stSidebar"] {{
+        background-color: rgba(5, 5, 5, 0.85);
+        backdrop-filter: blur(15px);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    }}
+    
+    /* Hide main menu/footer but keep header for sidebar toggle */
+    #MainMenu, footer {{visibility: hidden;}}
 
     /* Main Container */
     .block-container {{
@@ -196,7 +224,7 @@ st.markdown(f"""
         text-shadow: 0 0 25px rgba(47, 141, 77, 0.5);
     }}
 
-    /* Glass Card - Removed as per request to remove unwanted placeholders */
+    /* Glass Card */
     .glass-card {{
         background-color: transparent;
         backdrop-filter: none;
@@ -276,6 +304,19 @@ st.markdown(f"""
     .stTabs [data-baseweb="tab-highlight"] {{
         background-color: #2F8D4D !important;
         box-shadow: 0 0 10px rgba(47, 141, 77, 0.5);
+    }}
+    
+    /* Slider Styling (Green Theme) */
+    div[data-baseweb="slider"] > div > div > div > div {{
+        background-color: #2F8D4D !important;
+    }}
+    div[data-baseweb="slider"] div[role="slider"] {{
+        background-color: #2F8D4D !important;
+        box-shadow: 0 0 10px rgba(47, 141, 77, 0.5) !important;
+        border: 2px solid rgba(255,255,255,0.2) !important;
+    }}
+    div[data-baseweb="slider"] > div > div > div {{
+        background-color: rgba(255, 255, 255, 0.1) !important;
     }}
 
     /* Progress & Alerts */
