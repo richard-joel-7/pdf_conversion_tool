@@ -310,11 +310,16 @@ st.markdown(f"""
     div[data-baseweb="slider"] > div > div > div > div {{
         background-color: #2F8D4D !important;
     }}
+    /* Force override of the red track specifically */
+    div[data-baseweb="slider"] > div > div > div > div:first-child {{
+        background-color: #2F8D4D !important;
+    }}
     div[data-baseweb="slider"] div[role="slider"] {{
         background-color: #2F8D4D !important;
         box-shadow: 0 0 10px rgba(47, 141, 77, 0.5) !important;
         border: 2px solid rgba(255,255,255,0.2) !important;
     }}
+    /* The unfilled track part */
     div[data-baseweb="slider"] > div > div > div {{
         background-color: rgba(255, 255, 255, 0.1) !important;
     }}
