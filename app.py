@@ -23,7 +23,7 @@ st.set_page_config(
     page_title="Phantom FX | Doc Tools",
     page_icon="photo header.png",
     layout="centered",
-    initial_sidebar_state="collapsed"
+    initial_sidebar_state="expanded"
 )
 
 # Tesseract Configuration
