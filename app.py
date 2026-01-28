@@ -87,6 +87,14 @@ with st.sidebar:
         help="Upscales uploaded images to improve OCR for small text. Default is 2.0x."
     )
     
+    # Advanced Enhancement Options
+    enhancement_mode = st.selectbox(
+        "Text Enhancement Mode",
+        ["Standard (Auto)", "Denoise & Sharpen", "Thicken Text (Dilation)", "Thin Text (Erosion)"],
+        index=0,
+        help="Choose a preprocessing mode to handle specific document issues."
+    )
+    
     st.markdown("---")
     st.markdown("### 🛠️ Corrections")
     enable_corrections = st.checkbox("Enable Auto-Corrections", value=True, help="Automatically fix common Tamil OCR errors (e.g., இரசு -> அரசு).")
@@ -378,7 +386,7 @@ st.markdown(f"""
 # Logic Functions
 # ==============================================================================
 
-def preprocess_image(pil_image, upscale_factor=1.0):
+def preprocess_image(pil_image, upscale_factor=1.0, mode="Standard (Auto)"):
     open_cv_image = np.array(pil_image) 
     if len(open_cv_image.shape) == 3:
         open_cv_image = open_cv_image[:, :, ::-1].copy()
@@ -391,7 +399,35 @@ def preprocess_image(pil_image, upscale_factor=1.0):
         open_cv_image = cv2.resize(open_cv_image, (new_width, new_height), interpolation=cv2.INTER_CUBIC)
 
     gray = cv2.cvtColor(open_cv_image, cv2.COLOR_BGR2GRAY)
-    _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
+    # Enhancement Modes
+    if mode == "Denoise & Sharpen":
+        # Denoise
+        gray = cv2.fastNlMeansDenoising(gray, None, 10, 7, 21)
+        # Sharpen
+        kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+        gray = cv2.filter2D(gray, -1, kernel)
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
+    elif mode == "Thicken Text (Dilation)":
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # Invert for morphological operations (text needs to be white)
+        thresh = cv2.bitwise_not(thresh)
+        kernel = np.ones((2,2), np.uint8)
+        thresh = cv2.dilate(thresh, kernel, iterations=1)
+        thresh = cv2.bitwise_not(thresh)
+        
+    elif mode == "Thin Text (Erosion)":
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        # Invert
+        thresh = cv2.bitwise_not(thresh)
+        kernel = np.ones((2,2), np.uint8)
+        thresh = cv2.erode(thresh, kernel, iterations=1)
+        thresh = cv2.bitwise_not(thresh)
+        
+    else: # Standard (Auto)
+        _, thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+        
     return Image.fromarray(thresh)
 
 def parse_bbox(title_str):
@@ -566,22 +602,32 @@ with tab1:
                 status_text.markdown("<p style='color: #34d399;'>Initializing...</p>", unsafe_allow_html=True)
                 
                 file_bytes = uploaded_pdf.read()
-                # Use DPI from sidebar
-                images = convert_from_bytes(file_bytes, poppler_path=POPPLER_PATH, dpi=pdf_dpi)
+                # Quick Poppler validation
+                if POPPLER_PATH and not os.path.exists(os.path.join(POPPLER_PATH, "pdftoppm.exe")):
+                    st.error("Poppler not found. Please install Poppler and set POPPLER_PATH to its bin folder.")
+                    st.stop()
                 
+                # Warn for extremely high DPI
+                if pdf_dpi > 450:
+                    st.warning("High DPI selected. Conversion may take longer.")
+                
+                # Convert page-by-page to avoid long initialization and show progress
+                reader_stream = io.BytesIO(file_bytes)
+                pdf_reader = PdfReader(reader_stream)
+                total_pages = len(pdf_reader.pages)
                 doc = Document()
-                total_pages = len(images)
                 
-                for i, image in enumerate(images):
-                    progress_bar.progress(int((i / total_pages) * 100))
-                    status_text.markdown(f"<p style='color: #34d399;'>Processing Page {i+1} of {total_pages}...</p>", unsafe_allow_html=True)
+                for i in range(total_pages):
+                    status_text.markdown(f"<p style='color: #34d399;'>Converting page {i+1}/{total_pages} (DPI {pdf_dpi})...</p>", unsafe_allow_html=True)
+                    progress_bar.progress(int((i / max(total_pages, 1)) * 100))
+                    # Render only the current page
+                    imgs = convert_from_bytes(file_bytes, poppler_path=POPPLER_PATH, dpi=pdf_dpi, first_page=i+1, last_page=i+1)
+                    image = imgs[0]
                     
-                    # Preprocess (upscale factor usually 1.0 for high DPI PDF renders, but we can pass 1.0)
-                    processed_img = preprocess_image(image, upscale_factor=1.0)
-                    
+                    processed_img = preprocess_image(image, upscale_factor=1.0, mode=enhancement_mode)
                     try:
                         hocr = pytesseract.image_to_pdf_or_hocr(
-                            processed_img, 
+                            processed_img,
                             extension='hocr',
                             lang='eng+tam',
                             config=TESSDATA_CONFIG + " -c hocr_font_info=1"
@@ -630,7 +676,7 @@ with tab2:
                 
                 image = Image.open(uploaded_img)
                 # Use upscale factor from sidebar
-                processed_img = preprocess_image(image, upscale_factor=img_upscale_factor)
+                processed_img = preprocess_image(image, upscale_factor=img_upscale_factor, mode=enhancement_mode)
                 
                 doc = Document()
                 
