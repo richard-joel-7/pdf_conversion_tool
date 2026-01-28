@@ -1,0 +1,12 @@
+pdf2image
+pytesseract
+python-docx
+opencv-python
+tqdm
+Pillow
+numpy
+pdf2docx
+pypdf
+beautifulsoup4
+lxml
+streamlit
