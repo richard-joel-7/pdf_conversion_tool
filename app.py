@@ -352,8 +352,8 @@ def hocr_to_docx(hocr_content, doc, page_num):
             page_center = page_width / 2
             
             # Script formatting heuristics
-            # Center alignment check (looser tolerance)
-            if abs(x_center - page_center) < (page_width * 0.15):
+            # Center alignment check (Relaxed tolerance to 20% to capture loosely centered text)
+            if abs(x_center - page_center) < (page_width * 0.20):
                 align = WD_ALIGN_PARAGRAPH.CENTER
             elif x1 > (page_width * 0.9) and x0 > (page_width * 0.6):
                 align = WD_ALIGN_PARAGRAPH.RIGHT
@@ -458,7 +458,8 @@ with tab1:
                 status_text.markdown("<p style='color: #34d399;'>Initializing...</p>", unsafe_allow_html=True)
                 
                 file_bytes = uploaded_pdf.read()
-                images = convert_from_bytes(file_bytes, poppler_path=POPPLER_PATH)
+                # Use high DPI (300) to drastically improve OCR accuracy (fixes "2% error")
+                images = convert_from_bytes(file_bytes, poppler_path=POPPLER_PATH, dpi=300)
                 
                 doc = Document()
                 total_pages = len(images)
